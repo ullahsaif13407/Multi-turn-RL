@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environments
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+
+# ML artifacts
+checkpoints/
+wandb/
+runs/
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# Config overrides
+*.local.yaml

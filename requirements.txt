@@ -1,0 +1,15 @@
+# Core ML
+torch>=2.2.0
+transformers>=4.37.0
+peft>=0.8.0
+
+# Logging
+wandb>=0.16.0
+
+# Config + utilities
+pyyaml>=6.0
+tqdm>=4.66.0
+numpy>=1.24.0
+
+# Testing
+pytest>=7.4.0
