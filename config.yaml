@@ -1,9 +1,20 @@
 model:
-  name: Qwen/Qwen2.5-1.5B-Instruct
-  max_length: 2048
+  name: Qwen/Qwen3-1.7B
+  max_length: 4096
   dtype: bfloat16
   lora_r: 16
   lora_alpha: 32
+
+data:
+  dataset: gsm8k
+  max_samples: 1000
+  split: train
+
+generation:
+  max_tool_rounds: 5
+  max_new_tokens: 512
+  temperature: 0.7
+  enable_thinking: true
 
 training:
   lr: 1.0e-5

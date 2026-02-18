@@ -211,6 +211,10 @@ class Environment:
             "success": ep.success,
         }
 
+    def execute_tool(self, name: str, arguments: dict) -> tuple[str, bool]:
+        """Execute a tool by name. Returns (result_string, is_valid)."""
+        return _execute_mock_tool(name, arguments)
+
     @property
     def episode(self) -> Optional[Episode]:
         return self._episode

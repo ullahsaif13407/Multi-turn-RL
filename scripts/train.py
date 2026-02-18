@@ -8,6 +8,7 @@ Usage:
 
 import argparse
 import logging
+import random
 import sys
 from pathlib import Path
 
@@ -18,6 +19,7 @@ import torch
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.data import load_tasks
 from src.environment import Environment
 from src.policy import QwenPolicy, PolicyConfig
 from src.grpo import train_step as grpo_train_step
@@ -42,10 +44,20 @@ def train(cfg: dict) -> None:
     m = cfg["model"]
     t = cfg["training"]
     r = cfg["rewards"]
+    g = cfg.get("generation", {})
+    d = cfg.get("data", {})
 
     # Device
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info(f"Device: {device}")
+
+    # Load dataset
+    tasks = load_tasks(
+        d.get("dataset", "gsm8k"),
+        split=d.get("split", "train"),
+        n=d.get("max_samples", 1000),
+    )
+    logger.info(f"Loaded {len(tasks)} tasks from {d.get('dataset', 'gsm8k')}")
 
     # Policy
     policy_cfg = PolicyConfig(
@@ -85,15 +97,25 @@ def train(cfg: dict) -> None:
     if HAS_WANDB and cfg.get("wandb", {}).get("enabled", False):
         wandb.init(project=cfg["wandb"].get("project", "multi-turn-rl"), config=cfg)
 
+    # Generation config
+    max_tool_rounds = g.get("max_tool_rounds", 5)
+    max_new_tokens = g.get("max_new_tokens", 512)
+    temperature = g.get("temperature", 0.7)
+
     # Training loop
+    num_prompts = t["batch_size"]
     for step in range(t["num_iterations"]):
+        batch_tasks = random.sample(tasks, min(num_prompts, len(tasks)))
+
         batch, stats = collect_grpo_batch(
             policy=policy,
+            tasks=batch_tasks,
             env=env,
             tokenizer=policy.tokenizer,
-            num_prompts=t["batch_size"],
             group_size=t["group_size"],
-            max_turns=t["max_turns"],
+            max_tool_rounds=max_tool_rounds,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
             device=device,
         )
 
@@ -107,7 +129,8 @@ def train(cfg: dict) -> None:
 
         logger.info(
             f"[{step}/{t['num_iterations']}] loss={loss_val:.4f} "
-            f"reward={stats['reward_mean']:.3f} success={stats['success_rate']:.1%}"
+            f"reward={stats['reward_mean']:.3f} success={stats['success_rate']:.1%} "
+            f"tool_calls={stats['avg_tool_calls']:.1f}"
         )
 
         if HAS_WANDB and wandb.run:

@@ -22,6 +22,7 @@ class GRPOBatch:
     rewards: torch.Tensor          # (B,)
     group_ids: torch.Tensor        # (B,)
     ref_log_probs: Optional[torch.Tensor] = None  # (B, response_len)
+    loss_mask: Optional[torch.Tensor] = None       # (B, response_len) — 1 for policy tokens
 
 
 def compute_log_probs(
@@ -89,8 +90,13 @@ def compute_loss(
     # Advantages
     advantages = compute_advantages(batch.rewards, batch.group_ids)
 
+    # Effective mask: response_mask * loss_mask (if present)
+    effective_mask = batch.response_mask
+    if batch.loss_mask is not None:
+        effective_mask = effective_mask * batch.loss_mask
+
     # REINFORCE: -advantage * sum(log_prob)
-    policy_lp_sum = (policy_lp * batch.response_mask).sum(dim=-1)
+    policy_lp_sum = (policy_lp * effective_mask).sum(dim=-1)
     policy_loss = -(advantages * policy_lp_sum).mean()
 
     # KL penalty
@@ -98,7 +104,7 @@ def compute_loss(
     kl_mean = torch.tensor(0.0, device=policy_loss.device)
     if ref_lp is not None and kl_coef > 0:
         kl_per_token = ref_lp - policy_lp
-        kl_per_sample = (kl_per_token * batch.response_mask).sum(-1) / (batch.response_mask.sum(-1) + 1e-8)
+        kl_per_sample = (kl_per_token * effective_mask).sum(-1) / (effective_mask.sum(-1) + 1e-8)
         kl_mean = kl_per_sample.mean()
         kl_loss = kl_coef * kl_mean
 

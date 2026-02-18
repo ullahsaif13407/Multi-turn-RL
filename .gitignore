@@ -1,36 +1,55 @@
-# Python
+# Python cache / build artifacts
 __pycache__/
 *.py[cod]
+*.so
 *.egg-info/
-dist/
 build/
+dist/
 .eggs/
 
-# Environments
+# Virtual environments
 .venv/
 venv/
 
-# IDE
+# Secrets
+.env
+
+# Editor / OS files
 .vscode/
 .idea/
-
-# OS
 .DS_Store
 Thumbs.db
+
+# Claude Code
+.claude/
 
 # Testing
 .pytest_cache/
 htmlcov/
 .coverage
 
-# ML artifacts
-checkpoints/
-wandb/
-runs/
+# Model / checkpoint files
 *.pt
 *.pth
 *.bin
 *.safetensors
+*.ckpt
+checkpoints*/
+**/checkpoints*/
+
+# Training outputs and logs
+wandb/
+**/wandb/
+runs/
+logs*/
+**/logs*/
+
+# Experiments output
+experiments/
 
 # Config overrides
 *.local.yaml
+
+# Working docs (not for repo)
+CLAUDE.md
+CONTINUITY.md

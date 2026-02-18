@@ -21,7 +21,7 @@ except ImportError:
 @dataclass
 class PolicyConfig:
     """Configuration for the policy model."""
-    model_name: str = "Qwen/Qwen2.5-1.5B-Instruct"
+    model_name: str = "Qwen/Qwen3-1.7B"
     max_length: int = 2048
     dtype: str = "bfloat16"
     device_map: str = "auto"
@@ -144,6 +144,56 @@ class QwenPolicy(nn.Module):
                 **kwargs,
             )
         return outputs
+
+    def generate_turn(
+        self,
+        messages: list[dict],
+        tools: Optional[list[dict]] = None,
+        max_new_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+    ) -> str:
+        """Generate one assistant turn, stopping at <|im_end|>.
+
+        Returns raw text INCLUDING <think>, <tool_call> tags.
+        """
+        max_new_tokens = max_new_tokens or self.config.max_new_tokens
+        temperature = temperature or self.config.temperature
+
+        template_kwargs = dict(
+            tokenize=False, add_generation_prompt=True, enable_thinking=True,
+        )
+        if tools:
+            template_kwargs["tools"] = tools
+
+        text = self.tokenizer.apply_chat_template(messages, **template_kwargs)
+        inputs = self.tokenizer(
+            text, return_tensors="pt",
+            truncation=True, max_length=self.config.max_length - max_new_tokens,
+        )
+        input_ids = inputs["input_ids"].to(self.model.device)
+        attention_mask = inputs["attention_mask"].to(self.model.device)
+        prompt_len = input_ids.shape[1]
+
+        # Stop at <|im_end|>
+        im_end_id = self.tokenizer.convert_tokens_to_ids("<|im_end|>")
+        eos_ids = [self.tokenizer.eos_token_id]
+        if isinstance(im_end_id, int) and im_end_id != self.tokenizer.unk_token_id:
+            eos_ids.append(im_end_id)
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=self.config.top_p,
+                do_sample=True,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=eos_ids,
+            )
+
+        new_tokens = output_ids[0][prompt_len:]
+        return self.tokenizer.decode(new_tokens, skip_special_tokens=False)
 
     def trainable_parameters(self) -> list[nn.Parameter]:
         return [p for p in self.model.parameters() if p.requires_grad]
